@@ -275,12 +275,16 @@ export function useEmojiGame() {
     isFrozen: isFrozenRef.current,
   }), [])
 
-  // Lava tick - rises continuously, checks emoji collision
+  // Lava tick - delta-time based for consistent speed across devices
   useEffect(() => {
+    let lastTickTime = Date.now()
+
     const interval = setInterval(() => {
       if (phaseRef.current === 'gameover') return
 
       const now = Date.now()
+      const dt = Math.min((now - lastTickTime) / 1000, 0.1) // cap to prevent jumps
+      lastTickTime = now
 
       // Check freeze expiry
       if (isFrozenRef.current && now >= freezeEndTimeRef.current) {
@@ -288,10 +292,10 @@ export function useEmojiGame() {
         setIsFrozen(false)
       }
 
-      // Move lava up (unless frozen)
+      // Move lava up (unless frozen) - all in px/sec units
       if (!isFrozenRef.current) {
-        lavaYRef.current -= lavaSpeedRef.current
-        lavaSpeedRef.current += LAVA_SPEED_INCREASE / 60
+        lavaYRef.current -= lavaSpeedRef.current * dt
+        lavaSpeedRef.current += LAVA_SPEED_INCREASE * dt
       }
 
       // Check collision with emojis

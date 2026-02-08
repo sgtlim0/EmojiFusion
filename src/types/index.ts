@@ -68,9 +68,9 @@ export const COMBO_WINDOW = 1500 // ms window for combo chain
 export const DANGER_CHECK_DELAY = 2000 // ms before checking danger line after drop
 export const DROP_COOLDOWN = 400 // ms between drops
 
-// Lava mechanic
-export const LAVA_INITIAL_Y = 800 // starts well below visible area (~1min to reach floor)
-export const LAVA_SPEED = 0.04 // pixels per tick (60fps = ~2.4px/sec)
-export const LAVA_SPEED_INCREASE = 0.0005 // acceleration per tick
-export const LAVA_FREEZE_DURATION = 3000 // ms freeze on high-level merge
+// Lava mechanic (all speeds in pixels-per-second, delta-time based)
+export const LAVA_INITIAL_Y = 720 // starts below visible area (~40s to become visible)
+export const LAVA_SPEED = 2 // pixels per second (initial)
+export const LAVA_SPEED_INCREASE = 0.05 // acceleration in px/sec²
+export const LAVA_FREEZE_DURATION = 4000 // ms freeze on high-level merge
 export const LAVA_FREEZE_MERGE_LEVEL = 4 // merge result level >= this triggers freeze
