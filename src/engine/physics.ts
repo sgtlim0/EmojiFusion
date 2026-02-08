@@ -1,17 +1,19 @@
 import Matter from 'matter-js'
-import { EMOJI_LEVELS, GAME_CONFIG } from '../types/index.ts'
+import { EMOJI_LEVELS, GAME_CONFIG, BOMB_RADIUS } from '../types/index.ts'
 import type { EmojiLevel } from '../types/index.ts'
 
 const { Engine, Render, Runner, Bodies, Composite, Events, Body, Mouse, Vector } = Matter
 
 export interface PhysicsCallbacks {
   onMerge: (levelA: number, bodyIdA: number, bodyIdB: number, posX: number, posY: number) => void
+  onBomb: (targetLevel: number) => void
 }
 
 interface EmojiBodyData {
   isEmoji: boolean
   level: number
   emojiId: number
+  isBomb?: boolean
 }
 
 let nextEmojiId = 0
@@ -22,6 +24,31 @@ export function getEmojiData(body: Matter.Body): EmojiBodyData | null {
   return null
 }
 
+export function clearAllEmojis(engine: Matter.Engine): void {
+  const bodies = Composite.allBodies(engine.world)
+  for (const body of bodies) {
+    if (getEmojiData(body)) {
+      Composite.remove(engine.world, body)
+    }
+  }
+}
+
+export function removeEmojisByLevel(
+  engine: Matter.Engine,
+  level: number,
+): Array<{ x: number; y: number }> {
+  const bodies = Composite.allBodies(engine.world)
+  const removed: Array<{ x: number; y: number }> = []
+  for (const body of bodies) {
+    const data = getEmojiData(body)
+    if (data && data.level === level && !data.isBomb) {
+      removed.push({ x: body.position.x, y: body.position.y })
+      Composite.remove(engine.world, body)
+    }
+  }
+  return removed
+}
+
 export function createPhysicsEngine(
   container: HTMLElement,
   callbacks: PhysicsCallbacks,
@@ -30,6 +57,7 @@ export function createPhysicsEngine(
   render: Matter.Render
   runner: Matter.Runner
   dropEmoji: (x: number, level: number) => number
+  dropBomb: (x: number) => number
   cleanup: () => void
 } {
   const { width, height, wallThickness } = GAME_CONFIG
@@ -101,6 +129,20 @@ export function createPhysicsEngine(
       const dataB = getEmojiData(pair.bodyB)
 
       if (!dataA || !dataB) continue
+
+      // Bomb collision
+      if (dataA.isBomb || dataB.isBomb) {
+        const bombBody = dataA.isBomb ? pair.bodyA : pair.bodyB
+        const target = dataA.isBomb ? dataB : dataA
+        if (target.isBomb) continue
+        if (mergingBodies.has(bombBody.id)) continue
+        mergingBodies.add(bombBody.id)
+        Composite.remove(engine.world, bombBody)
+        mergingBodies.delete(bombBody.id)
+        callbacks.onBomb(target.level)
+        continue
+      }
+
       if (dataA.level !== dataB.level) continue
       if (dataA.level >= EMOJI_LEVELS.length - 1) continue
       if (mergingBodies.has(pair.bodyA.id) || mergingBodies.has(pair.bodyB.id)) continue
@@ -151,6 +193,26 @@ export function createPhysicsEngine(
     return body
   }
 
+  function createBombBody(x: number, y: number): Matter.Body {
+    const id = nextEmojiId++
+    const body = Bodies.circle(x, y, BOMB_RADIUS, {
+      restitution: 0.3,
+      friction: 0.5,
+      density: 0.002,
+      render: {
+        fillStyle: 'transparent',
+        strokeStyle: 'transparent',
+      },
+      plugin: {
+        isEmoji: true,
+        isBomb: true,
+        level: -1,
+        emojiId: id,
+      } as unknown as Matter.Plugin,
+    })
+    return body
+  }
+
   function dropEmoji(x: number, level: number): number {
     const emoji = EMOJI_LEVELS[level]
     const clampedX = Math.max(
@@ -158,6 +220,17 @@ export function createPhysicsEngine(
       Math.min(width - wallThickness - emoji.radius, x),
     )
     const body = createEmojiBody(clampedX, GAME_CONFIG.dropY, emoji)
+    Composite.add(engine.world, body)
+    const data = getEmojiData(body)
+    return data ? data.emojiId : -1
+  }
+
+  function dropBomb(x: number): number {
+    const clampedX = Math.max(
+      wallThickness + BOMB_RADIUS,
+      Math.min(width - wallThickness - BOMB_RADIUS, x),
+    )
+    const body = createBombBody(clampedX, GAME_CONFIG.dropY)
     Composite.add(engine.world, body)
     const data = getEmojiData(body)
     return data ? data.emojiId : -1
@@ -176,7 +249,7 @@ export function createPhysicsEngine(
     }
   }
 
-  return { engine, render, runner, dropEmoji, cleanup }
+  return { engine, render, runner, dropEmoji, dropBomb, cleanup }
 }
 
 export function getWorldEmojis(engine: Matter.Engine): Array<{
@@ -186,6 +259,7 @@ export function getWorldEmojis(engine: Matter.Engine): Array<{
   y: number
   angle: number
   radius: number
+  isBomb: boolean
 }> {
   const bodies = Composite.allBodies(engine.world)
   const result: Array<{
@@ -195,6 +269,7 @@ export function getWorldEmojis(engine: Matter.Engine): Array<{
     y: number
     angle: number
     radius: number
+    isBomb: boolean
   }> = []
 
   for (const body of bodies) {
@@ -206,7 +281,8 @@ export function getWorldEmojis(engine: Matter.Engine): Array<{
       x: body.position.x,
       y: body.position.y,
       angle: body.angle,
-      radius: EMOJI_LEVELS[data.level].radius,
+      radius: data.isBomb ? BOMB_RADIUS : EMOJI_LEVELS[data.level].radius,
+      isBomb: data.isBomb === true,
     })
   }
 

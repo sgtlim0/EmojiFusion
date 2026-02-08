@@ -133,6 +133,46 @@
   line-height: 1.2;
 }
 
+.bombCurrentEmoji {
+  font-size: 1.15rem;
+  line-height: 1.2;
+  animation: bombPulse 0.8s ease infinite;
+}
+
+@keyframes bombPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+.bombMeter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+}
+
+.bombReady {
+  font-size: 1rem;
+  animation: bombPulse 0.8s ease infinite;
+}
+
+.bombBar {
+  width: 4px;
+  height: 24px;
+  background: rgba(245, 158, 11, 0.15);
+  border-radius: 2px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+.bombFill {
+  width: 100%;
+  background: linear-gradient(to top, #f59e0b, #fbbf24);
+  border-radius: 2px;
+  transition: height 200ms ease;
+}
+
 .muteButton {
   background: none;
   border: 1px solid rgba(255, 255, 255, 0.08);

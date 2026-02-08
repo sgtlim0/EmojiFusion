@@ -74,3 +74,8 @@ export const LAVA_SPEED = 2 // pixels per second (initial)
 export const LAVA_SPEED_INCREASE = 0.05 // acceleration in px/sec²
 export const LAVA_FREEZE_DURATION = 4000 // ms freeze on high-level merge
 export const LAVA_FREEZE_MERGE_LEVEL = 4 // merge result level >= this triggers freeze
+
+// Bomb power-up (핵사 P item)
+export const BOMB_MERGE_INTERVAL = 8 // merges needed to earn a bomb
+export const BOMB_RADIUS = 22
+export const BOMB_EMOJI = '\uD83D\uDCA3' // 💣

@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback } from 'react'
-import { EMOJI_LEVELS, GAME_CONFIG } from '../../types/index.ts'
+import { EMOJI_LEVELS, GAME_CONFIG, BOMB_RADIUS, BOMB_EMOJI } from '../../types/index.ts'
 import type { EmojiRenderData, MergeEvent } from '../../hooks/useEmojiGame.ts'
 import type { ScaleInfo } from '../../hooks/useResponsiveScale.ts'
 import styles from './GameCanvas.module.css'
@@ -28,6 +28,7 @@ interface GameCanvasProps {
   readonly scaleInfo: ScaleInfo
   readonly getEmojis: () => EmojiRenderData[]
   readonly getLavaState: () => LavaState
+  readonly hasBomb: boolean
   readonly onMoveX: (x: number) => void
   readonly onDrop: () => void
   readonly onInit: (container: HTMLElement) => void
@@ -42,6 +43,7 @@ export default function GameCanvas({
   scaleInfo,
   getEmojis,
   getLavaState,
+  hasBomb,
   onMoveX,
   onDrop,
   onInit,
@@ -51,15 +53,15 @@ export default function GameCanvas({
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null)
 
   // Store latest props in refs for the animation loop
-  const propsRef = useRef({ currentLevel, dropX, phase, getEmojis, getLavaState })
+  const propsRef = useRef({ currentLevel, dropX, phase, getEmojis, getLavaState, hasBomb })
   const particlesRef = useRef<Particle[]>([])
   const prevMergeCountRef = useRef(0)
   const scaleRef = useRef(scaleInfo)
 
   // Sync props to refs in effects
   useEffect(() => {
-    propsRef.current = { currentLevel, dropX, phase, getEmojis, getLavaState }
-  }, [currentLevel, dropX, phase, getEmojis, getLavaState])
+    propsRef.current = { currentLevel, dropX, phase, getEmojis, getLavaState, hasBomb }
+  }, [currentLevel, dropX, phase, getEmojis, getLavaState, hasBomb])
 
   useEffect(() => {
     scaleRef.current = scaleInfo
@@ -174,50 +176,68 @@ export default function GameCanvas({
 
       // Drop guide
       if (ph !== 'gameover') {
-        const emoji = EMOJI_LEVELS[cl]
-        ctx.strokeStyle = 'rgba(168, 85, 247, 0.2)'
+        const isBombDrop = propsRef.current.hasBomb
+        const previewEmoji = isBombDrop ? BOMB_EMOJI : EMOJI_LEVELS[cl].emoji
+        const previewRadius = isBombDrop ? BOMB_RADIUS : EMOJI_LEVELS[cl].radius
+
+        ctx.strokeStyle = isBombDrop ? 'rgba(245, 158, 11, 0.3)' : 'rgba(168, 85, 247, 0.2)'
         ctx.lineWidth = 1
         ctx.setLineDash([4, 4])
         ctx.beginPath()
-        ctx.moveTo(dx, GAME_CONFIG.dropY + emoji.radius)
+        ctx.moveTo(dx, GAME_CONFIG.dropY + previewRadius)
         ctx.lineTo(dx, h)
         ctx.stroke()
         ctx.setLineDash([])
 
         // Preview emoji
-        ctx.font = `${emoji.radius * 1.4}px serif`
+        if (isBombDrop) {
+          const pulse = 0.6 + 0.4 * Math.sin(Date.now() * 0.006)
+          ctx.shadowColor = '#f59e0b'
+          ctx.shadowBlur = 12 * pulse
+        }
+        ctx.font = `${previewRadius * 1.4}px serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.globalAlpha = 0.7
-        ctx.fillText(emoji.emoji, dx, GAME_CONFIG.dropY)
+        ctx.fillText(previewEmoji, dx, GAME_CONFIG.dropY)
         ctx.globalAlpha = 1
+        ctx.shadowBlur = 0
       }
 
       // Render emojis
       const emojis = ge()
       for (const e of emojis) {
-        const def = EMOJI_LEVELS[e.level]
+        const isBomb = e.isBomb
+        const color = isBomb ? '#f59e0b' : EMOJI_LEVELS[e.level].color
+        const emoji = isBomb ? BOMB_EMOJI : EMOJI_LEVELS[e.level].emoji
+        const radius = e.radius
+
         ctx.save()
         ctx.translate(e.x, e.y)
         ctx.rotate(e.angle)
 
-        // Subtle glow (reduced for mobile perf)
-        ctx.shadowColor = def.color
-        ctx.shadowBlur = 4
+        if (isBomb) {
+          const pulse = 0.7 + 0.3 * Math.sin(Date.now() * 0.005)
+          ctx.shadowColor = '#f59e0b'
+          ctx.shadowBlur = 12 * pulse
+        } else {
+          ctx.shadowColor = color
+          ctx.shadowBlur = 4
+        }
 
         ctx.beginPath()
-        ctx.arc(0, 0, def.radius, 0, Math.PI * 2)
-        ctx.fillStyle = def.color + '20'
+        ctx.arc(0, 0, radius, 0, Math.PI * 2)
+        ctx.fillStyle = color + '20'
         ctx.fill()
-        ctx.strokeStyle = def.color + '60'
-        ctx.lineWidth = 1.5
+        ctx.strokeStyle = color + '60'
+        ctx.lineWidth = isBomb ? 2 : 1.5
         ctx.stroke()
 
         ctx.shadowBlur = 0
-        ctx.font = `${def.radius * 1.3}px serif`
+        ctx.font = `${radius * 1.3}px serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
-        ctx.fillText(def.emoji, 0, 1)
+        ctx.fillText(emoji, 0, 1)
 
         ctx.restore()
       }

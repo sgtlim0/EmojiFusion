@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { createPhysicsEngine, getWorldEmojis } from '../engine/physics.ts'
-import { playDrop, playMerge, playCombo, playGameOver, playFreeze } from '../engine/sound.ts'
+import { createPhysicsEngine, getWorldEmojis, clearAllEmojis, removeEmojisByLevel } from '../engine/physics.ts'
+import { playDrop, playMerge, playCombo, playGameOver, playFreeze, playBomb } from '../engine/sound.ts'
 import {
   EMOJI_LEVELS,
   GAME_CONFIG,
@@ -12,6 +12,7 @@ import {
   LAVA_SPEED_INCREASE,
   LAVA_FREEZE_DURATION,
   LAVA_FREEZE_MERGE_LEVEL,
+  BOMB_MERGE_INTERVAL,
 } from '../types/index.ts'
 import type { GamePhase, LeaderboardEntry } from '../types/index.ts'
 
@@ -71,6 +72,7 @@ export interface EmojiRenderData {
   readonly y: number
   readonly angle: number
   readonly radius: number
+  readonly isBomb: boolean
 }
 
 export function useEmojiGame() {
@@ -85,6 +87,8 @@ export function useEmojiGame() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() => loadLeaderboard())
   const [muted, setMuted] = useState(false)
   const [isFrozen, setIsFrozen] = useState(false)
+  const [hasBomb, setHasBomb] = useState(false)
+  const [bombProgress, setBombProgress] = useState(0)
 
   const engineRef = useRef<ReturnType<typeof createPhysicsEngine> | null>(null)
   const lastDropTime = useRef(0)
@@ -92,11 +96,14 @@ export function useEmojiGame() {
   const gameOverCalled = useRef(false)
   const scoreRef = useRef(0)
   const phaseRef = useRef<GamePhase>('ready')
+  const comboRef = useRef(0)
   const lavaYRef = useRef(LAVA_INITIAL_Y)
   const lavaSpeedRef = useRef(LAVA_SPEED)
   const isFrozenRef = useRef(false)
   const freezeEndTimeRef = useRef(0)
   const handleGameOverRef = useRef<() => void>(() => {})
+  const hasBombRef = useRef(false)
+  const mergeCountRef = useRef(0)
 
   // Keep refs in sync via effects (not during render)
   useEffect(() => {
@@ -117,18 +124,14 @@ export function useEmojiGame() {
       lastMergeTime.current = now
 
       const isCombo = timeSinceLastMerge < COMBO_WINDOW
+      const newCombo = isCombo ? comboRef.current + 1 : 0
+      comboRef.current = newCombo
+      setCombo(newCombo)
 
-      setCombo((prev) => {
-        const newCombo = isCombo ? prev + 1 : 0
-        return newCombo
-      })
-
-      setScore((prev) => {
-        const comboMultiplier = isCombo ? 1.5 : 1
-        const earned = Math.round(points * comboMultiplier)
-        const newScore = prev + earned
-        return newScore
-      })
+      // Hexsa-style exponential chain scoring: 2^chain multiplier
+      const comboMultiplier = newCombo > 0 ? Math.pow(2, newCombo) : 1
+      const earned = Math.round(points * comboMultiplier)
+      setScore((prev) => prev + earned)
 
       setMergeEvents((prev) => [
         ...prev.slice(-4),
@@ -138,7 +141,7 @@ export function useEmojiGame() {
       if (!muted) {
         playMerge(newLevel)
         if (isCombo) {
-          setTimeout(() => playCombo(1), 80)
+          setTimeout(() => playCombo(newCombo), 80)
         }
       }
 
@@ -146,6 +149,49 @@ export function useEmojiGame() {
       if (newLevel >= LAVA_FREEZE_MERGE_LEVEL) {
         isFrozenRef.current = true
         freezeEndTimeRef.current = Date.now() + LAVA_FREEZE_DURATION
+        setIsFrozen(true)
+        if (!muted) playFreeze()
+      }
+
+      // Track merges for bomb power-up
+      mergeCountRef.current += 1
+      setBombProgress(mergeCountRef.current)
+      if (mergeCountRef.current >= BOMB_MERGE_INTERVAL && !hasBombRef.current) {
+        hasBombRef.current = true
+        setHasBomb(true)
+      }
+    },
+    [muted],
+  )
+
+  const handleBomb = useCallback(
+    (targetLevel: number) => {
+      if (!engineRef.current) return
+      const removed = removeEmojisByLevel(engineRef.current.engine, targetLevel)
+      const count = removed.length
+      if (count === 0) return
+
+      // Hexsa scoring: points * 2^(count-1)
+      const basePoints = EMOJI_LEVELS[targetLevel].points
+      const bombScore = Math.round(basePoints * Math.pow(2, Math.min(count - 1, 10)))
+      setScore((prev) => prev + bombScore)
+
+      // Create merge events for particles at each removed position
+      const now = Date.now()
+      const events = removed.map((pos) => ({
+        x: pos.x,
+        y: pos.y,
+        level: targetLevel,
+        time: now,
+      }))
+      setMergeEvents((prev) => [...prev.slice(-(5 - events.length)), ...events])
+
+      if (!muted) playBomb()
+
+      // Freeze lava on bomb if target was high level
+      if (targetLevel >= LAVA_FREEZE_MERGE_LEVEL) {
+        isFrozenRef.current = true
+        freezeEndTimeRef.current = now + LAVA_FREEZE_DURATION
         setIsFrozen(true)
         if (!muted) playFreeze()
       }
@@ -195,9 +241,10 @@ export function useEmojiGame() {
 
       engineRef.current = createPhysicsEngine(container, {
         onMerge: handleMerge,
+        onBomb: handleBomb,
       })
     },
-    [handleMerge],
+    [handleMerge, handleBomb],
   )
 
   const drop = useCallback(() => {
@@ -210,7 +257,16 @@ export function useEmojiGame() {
     lastDropTime.current = now
     setPhase('dropping')
 
-    engineRef.current.dropEmoji(dropX, currentLevel)
+    if (hasBombRef.current) {
+      engineRef.current.dropBomb(dropX)
+      hasBombRef.current = false
+      setHasBomb(false)
+      mergeCountRef.current = 0
+      setBombProgress(0)
+    } else {
+      engineRef.current.dropEmoji(dropX, currentLevel)
+    }
+
     if (!muted) playDrop()
 
     // Advance to next emoji
@@ -237,13 +293,23 @@ export function useEmojiGame() {
   )
 
   const restart = useCallback(() => {
+    // Clear all emoji bodies from physics world (fixes play again bug)
+    if (engineRef.current) {
+      clearAllEmojis(engineRef.current.engine)
+    }
+
     gameOverCalled.current = false
     lastDropTime.current = 0
     lastMergeTime.current = 0
+    comboRef.current = 0
+    mergeCountRef.current = 0
+    hasBombRef.current = false
     lavaYRef.current = LAVA_INITIAL_Y
     lavaSpeedRef.current = LAVA_SPEED
     isFrozenRef.current = false
     freezeEndTimeRef.current = 0
+    setHasBomb(false)
+    setBombProgress(0)
     setIsFrozen(false)
     setScore(0)
     setCombo(0)
@@ -302,6 +368,7 @@ export function useEmojiGame() {
       if (!engineRef.current) return
       const emojis = getWorldEmojis(engineRef.current.engine)
       for (const e of emojis) {
+        if (e.isBomb) continue // bombs don't trigger lava game over
         if (lavaYRef.current <= e.y + e.radius) {
           handleGameOverRef.current()
           return
@@ -324,6 +391,8 @@ export function useEmojiGame() {
     leaderboard,
     muted,
     isFrozen,
+    hasBomb,
+    bombProgress,
     getLavaState,
     initPhysics,
     cleanupPhysics,

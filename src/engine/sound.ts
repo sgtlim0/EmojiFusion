@@ -94,6 +94,35 @@ export function playFreeze(): void {
   noise.stop(ctx.currentTime + 0.2)
 }
 
+export function playBomb(): void {
+  const ctx = getCtx()
+  // Deep boom
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.type = 'sine'
+  osc.frequency.setValueAtTime(100, ctx.currentTime)
+  osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.4)
+  gain.gain.setValueAtTime(0.3, ctx.currentTime)
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5)
+  osc.connect(gain)
+  gain.connect(ctx.destination)
+  osc.start(ctx.currentTime)
+  osc.stop(ctx.currentTime + 0.5)
+
+  // Crackle overlay
+  const noise = ctx.createOscillator()
+  const noiseGain = ctx.createGain()
+  noise.type = 'sawtooth'
+  noise.frequency.setValueAtTime(800, ctx.currentTime)
+  noise.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.3)
+  noiseGain.gain.setValueAtTime(0.08, ctx.currentTime)
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
+  noise.connect(noiseGain)
+  noiseGain.connect(ctx.destination)
+  noise.start(ctx.currentTime)
+  noise.stop(ctx.currentTime + 0.3)
+}
+
 export function hapticLight(): void {
   if (navigator.vibrate) {
     navigator.vibrate(8)

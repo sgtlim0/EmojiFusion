@@ -24,6 +24,8 @@ export default function App() {
     leaderboard,
     muted,
     isFrozen,
+    hasBomb,
+    bombProgress,
     getLavaState,
     initPhysics,
     cleanupPhysics,
@@ -70,6 +72,8 @@ export default function App() {
         combo={combo}
         muted={muted}
         isFrozen={isFrozen}
+        hasBomb={hasBomb}
+        bombProgress={bombProgress}
         onToggleMute={toggleMute}
       />
 
@@ -89,6 +93,7 @@ export default function App() {
             scaleInfo={scaleInfo}
             getEmojis={getEmojis}
             getLavaState={getLavaState}
+            hasBomb={hasBomb}
             onMoveX={moveDropX}
             onDrop={handleDrop}
             onInit={initPhysics}

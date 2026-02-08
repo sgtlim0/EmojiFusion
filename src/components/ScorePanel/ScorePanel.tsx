@@ -1,4 +1,4 @@
-import { EMOJI_LEVELS } from '../../types/index.ts'
+import { EMOJI_LEVELS, BOMB_EMOJI, BOMB_MERGE_INTERVAL } from '../../types/index.ts'
 import styles from './ScorePanel.module.css'
 
 interface ScorePanelProps {
@@ -9,6 +9,8 @@ interface ScorePanelProps {
   readonly combo: number
   readonly muted: boolean
   readonly isFrozen: boolean
+  readonly hasBomb: boolean
+  readonly bombProgress: number
   readonly onToggleMute: () => void
 }
 
@@ -20,6 +22,8 @@ export default function ScorePanel({
   combo,
   muted,
   isFrozen,
+  hasBomb,
+  bombProgress,
   onToggleMute,
 }: ScorePanelProps) {
   return (
@@ -46,13 +50,27 @@ export default function ScorePanel({
         </div>
       </div>
       <div className={styles.right}>
+        <div className={styles.bombMeter}>
+          {hasBomb ? (
+            <span className={styles.bombReady}>{BOMB_EMOJI}</span>
+          ) : (
+            <div className={styles.bombBar}>
+              <div
+                className={styles.bombFill}
+                style={{ height: `${(bombProgress / BOMB_MERGE_INTERVAL) * 100}%` }}
+              />
+            </div>
+          )}
+        </div>
         <div className={styles.nextPreview}>
           <span className={styles.nextLabel}>Next</span>
           <span className={styles.nextEmoji}>{EMOJI_LEVELS[nextLevel].emoji}</span>
         </div>
         <div className={styles.currentPreview}>
           <span className={styles.nextLabel}>Now</span>
-          <span className={styles.currentEmoji}>{EMOJI_LEVELS[currentLevel].emoji}</span>
+          <span className={hasBomb ? styles.bombCurrentEmoji : styles.currentEmoji}>
+            {hasBomb ? BOMB_EMOJI : EMOJI_LEVELS[currentLevel].emoji}
+          </span>
         </div>
         <button
           className={styles.muteButton}
