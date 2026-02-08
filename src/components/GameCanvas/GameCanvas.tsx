@@ -1,0 +1,254 @@
+import { useRef, useEffect, useCallback } from 'react'
+import { EMOJI_LEVELS, GAME_CONFIG } from '../../types/index.ts'
+import type { EmojiRenderData, MergeEvent } from '../../hooks/useEmojiGame.ts'
+import styles from './GameCanvas.module.css'
+
+interface Particle {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  life: number
+  maxLife: number
+  color: string
+  size: number
+}
+
+interface GameCanvasProps {
+  readonly currentLevel: number
+  readonly dropX: number
+  readonly phase: string
+  readonly mergeEvents: readonly MergeEvent[]
+  readonly getEmojis: () => EmojiRenderData[]
+  readonly onMoveX: (x: number) => void
+  readonly onDrop: () => void
+  readonly onInit: (container: HTMLElement) => void
+  readonly onCleanup: () => void
+}
+
+export default function GameCanvas({
+  currentLevel,
+  dropX,
+  phase,
+  mergeEvents,
+  getEmojis,
+  onMoveX,
+  onDrop,
+  onInit,
+  onCleanup,
+}: GameCanvasProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const overlayCanvasRef = useRef<HTMLCanvasElement>(null)
+
+  // Store latest props in refs for the animation loop
+  const propsRef = useRef({ currentLevel, dropX, phase, getEmojis })
+  const particlesRef = useRef<Particle[]>([])
+  const prevMergeCountRef = useRef(0)
+  const mergeEventsRef = useRef(mergeEvents)
+
+  // Sync props to refs in effects
+  useEffect(() => {
+    propsRef.current = { currentLevel, dropX, phase, getEmojis }
+  }, [currentLevel, dropX, phase, getEmojis])
+
+  useEffect(() => {
+    mergeEventsRef.current = mergeEvents
+  }, [mergeEvents])
+
+  // Init physics
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    onInit(el)
+    return () => {
+      onCleanup()
+    }
+  }, [onInit, onCleanup])
+
+  // Spawn particles on merge
+  useEffect(() => {
+    if (mergeEvents.length > prevMergeCountRef.current) {
+      const newEvents = mergeEvents.slice(prevMergeCountRef.current)
+      const newParticles: Particle[] = []
+      for (const evt of newEvents) {
+        const color = EMOJI_LEVELS[evt.level].color
+        for (let i = 0; i < 12; i++) {
+          const angle = (Math.PI * 2 * i) / 12
+          const speed = 1.5 + Math.random() * 3
+          newParticles.push({
+            x: evt.x,
+            y: evt.y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 1,
+            life: 1,
+            maxLife: 0.4 + Math.random() * 0.3,
+            color,
+            size: 2 + Math.random() * 3,
+          })
+        }
+      }
+      particlesRef.current = [...particlesRef.current, ...newParticles]
+    }
+    prevMergeCountRef.current = mergeEvents.length
+  }, [mergeEvents])
+
+  // Animation loop - fully self-contained in useEffect
+  useEffect(() => {
+    let animFrame = 0
+    let canvasReady = false
+
+    function loop() {
+      const canvas = overlayCanvasRef.current
+      if (!canvas) {
+        animFrame = requestAnimationFrame(loop)
+        return
+      }
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        animFrame = requestAnimationFrame(loop)
+        return
+      }
+
+      const { currentLevel: cl, dropX: dx, phase: ph, getEmojis: ge } = propsRef.current
+      const dpr = window.devicePixelRatio || 1
+      const w = GAME_CONFIG.width
+      const h = GAME_CONFIG.height
+
+      if (!canvasReady || canvas.width !== w * dpr || canvas.height !== h * dpr) {
+        canvas.width = w * dpr
+        canvas.height = h * dpr
+        canvas.style.width = `${w}px`
+        canvas.style.height = `${h}px`
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+        canvasReady = true
+      }
+
+      ctx.clearRect(0, 0, w, h)
+
+      // Danger line
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.3)'
+      ctx.lineWidth = 1
+      ctx.setLineDash([6, 4])
+      ctx.beginPath()
+      ctx.moveTo(GAME_CONFIG.wallThickness, GAME_CONFIG.dangerLineY)
+      ctx.lineTo(w - GAME_CONFIG.wallThickness, GAME_CONFIG.dangerLineY)
+      ctx.stroke()
+      ctx.setLineDash([])
+
+      // Drop guide
+      if (ph !== 'gameover') {
+        const emoji = EMOJI_LEVELS[cl]
+        ctx.strokeStyle = 'rgba(168, 85, 247, 0.2)'
+        ctx.lineWidth = 1
+        ctx.setLineDash([4, 4])
+        ctx.beginPath()
+        ctx.moveTo(dx, GAME_CONFIG.dropY + emoji.radius)
+        ctx.lineTo(dx, h)
+        ctx.stroke()
+        ctx.setLineDash([])
+
+        // Preview emoji at drop position
+        ctx.font = `${emoji.radius * 1.4}px serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.globalAlpha = 0.7
+        ctx.fillText(emoji.emoji, dx, GAME_CONFIG.dropY)
+        ctx.globalAlpha = 1
+      }
+
+      // Render emojis
+      const emojis = ge()
+      for (const e of emojis) {
+        const def = EMOJI_LEVELS[e.level]
+        ctx.save()
+        ctx.translate(e.x, e.y)
+        ctx.rotate(e.angle)
+
+        ctx.shadowColor = def.color
+        ctx.shadowBlur = 8
+
+        ctx.beginPath()
+        ctx.arc(0, 0, def.radius, 0, Math.PI * 2)
+        ctx.fillStyle = def.color + '20'
+        ctx.fill()
+        ctx.strokeStyle = def.color + '60'
+        ctx.lineWidth = 1.5
+        ctx.stroke()
+
+        ctx.shadowBlur = 0
+        ctx.font = `${def.radius * 1.3}px serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(def.emoji, 0, 1)
+
+        ctx.restore()
+      }
+
+      // Render and update particles
+      const dt = 1 / 60
+      const alive: Particle[] = []
+      for (const p of particlesRef.current) {
+        const updatedP: Particle = {
+          ...p,
+          x: p.x + p.vx,
+          y: p.y + p.vy,
+          vy: p.vy + 0.1,
+          life: p.life - dt / p.maxLife,
+        }
+
+        if (updatedP.life <= 0) continue
+        alive.push(updatedP)
+
+        ctx.globalAlpha = updatedP.life
+        ctx.fillStyle = updatedP.color
+        ctx.beginPath()
+        ctx.arc(updatedP.x, updatedP.y, updatedP.size * updatedP.life, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.globalAlpha = 1
+      particlesRef.current = alive
+
+      animFrame = requestAnimationFrame(loop)
+    }
+
+    animFrame = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(animFrame)
+  }, [])
+
+  // Input handlers
+  const getRelativeX = useCallback((clientX: number) => {
+    const canvas = overlayCanvasRef.current
+    if (!canvas) return GAME_CONFIG.width / 2
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = GAME_CONFIG.width / rect.width
+    return (clientX - rect.left) * scaleX
+  }, [])
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      onMoveX(getRelativeX(e.clientX))
+    },
+    [onMoveX, getRelativeX],
+  )
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      onMoveX(getRelativeX(e.clientX))
+      onDrop()
+    },
+    [onMoveX, onDrop, getRelativeX],
+  )
+
+  return (
+    <div className={styles.container}>
+      <div ref={containerRef} className={styles.physicsContainer} />
+      <canvas
+        ref={overlayCanvasRef}
+        className={styles.overlayCanvas}
+        onPointerMove={handlePointerMove}
+        onPointerDown={handlePointerDown}
+        style={{ touchAction: 'none' }}
+      />
+    </div>
+  )
+}

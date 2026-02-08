@@ -1,0 +1,43 @@
+.container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.popup {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  animation: popFloat 0.8s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes popFloat {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  30% {
+    opacity: 1;
+    transform: translate(-50%, -70%) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -120%) scale(0.8);
+  }
+}
+
+.emoji {
+  font-size: 1.3rem;
+}
+
+.points {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--amber);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
