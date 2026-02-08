@@ -8,6 +8,7 @@ interface ScorePanelProps {
   readonly nextLevel: number
   readonly combo: number
   readonly muted: boolean
+  readonly isFrozen: boolean
   readonly onToggleMute: () => void
 }
 
@@ -18,6 +19,7 @@ export default function ScorePanel({
   nextLevel,
   combo,
   muted,
+  isFrozen,
   onToggleMute,
 }: ScorePanelProps) {
   return (
@@ -28,6 +30,9 @@ export default function ScorePanel({
           <span className={styles.combo}>
             x{combo + 1}
           </span>
+        )}
+        {isFrozen && (
+          <span className={styles.freeze}>FREEZE</span>
         )}
       </div>
       <div className={styles.center}>

@@ -46,6 +46,23 @@
   100% { transform: scale(1); }
 }
 
+.freeze {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 4px;
+  padding: 1px 4px;
+  animation: freezePulse 1s ease infinite;
+  white-space: nowrap;
+}
+
+@keyframes freezePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .center {
   display: flex;
   align-items: center;

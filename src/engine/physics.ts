@@ -6,7 +6,6 @@ const { Engine, Render, Runner, Bodies, Composite, Events, Body, Mouse, Vector }
 
 export interface PhysicsCallbacks {
   onMerge: (levelA: number, bodyIdA: number, bodyIdB: number, posX: number, posY: number) => void
-  onGameOver: () => void
 }
 
 interface EmojiBodyData {
@@ -133,27 +132,6 @@ export function createPhysicsEngine(
     }
   })
 
-  // Danger line check
-  let dangerCheckTimer: ReturnType<typeof setInterval> | null = null
-
-  dangerCheckTimer = setInterval(() => {
-    const bodies = Composite.allBodies(engine.world)
-    for (const body of bodies) {
-      const data = getEmojiData(body)
-      if (!data) continue
-
-      // Check if any emoji is above danger line and nearly stationary
-      if (
-        body.position.y < GAME_CONFIG.dangerLineY &&
-        Math.abs(body.velocity.y) < 0.5 &&
-        Math.abs(body.velocity.x) < 0.5
-      ) {
-        callbacks.onGameOver()
-        return
-      }
-    }
-  }, 500)
-
   function createEmojiBody(x: number, y: number, emojiDef: EmojiLevel): Matter.Body {
     const id = nextEmojiId++
     const body = Bodies.circle(x, y, emojiDef.radius, {
@@ -189,7 +167,6 @@ export function createPhysicsEngine(
   Runner.run(runner, engine)
 
   function cleanup() {
-    if (dangerCheckTimer) clearInterval(dangerCheckTimer)
     Render.stop(render)
     Runner.stop(runner)
     Composite.clear(engine.world, false)

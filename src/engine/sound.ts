@@ -65,6 +65,35 @@ export function playButtonPress(): void {
   playTone(800, 0.03, 0.08, 'square')
 }
 
+export function playFreeze(): void {
+  const ctx = getCtx()
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.type = 'sine'
+  osc.frequency.setValueAtTime(800, ctx.currentTime)
+  osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.15)
+  osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.4)
+  gain.gain.setValueAtTime(0.15, ctx.currentTime)
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4)
+  osc.connect(gain)
+  gain.connect(ctx.destination)
+  osc.start(ctx.currentTime)
+  osc.stop(ctx.currentTime + 0.4)
+
+  // Ice crackling overlay
+  const noise = ctx.createOscillator()
+  const noiseGain = ctx.createGain()
+  noise.type = 'square'
+  noise.frequency.setValueAtTime(2000, ctx.currentTime)
+  noise.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.2)
+  noiseGain.gain.setValueAtTime(0.03, ctx.currentTime)
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2)
+  noise.connect(noiseGain)
+  noiseGain.connect(ctx.destination)
+  noise.start(ctx.currentTime)
+  noise.stop(ctx.currentTime + 0.2)
+}
+
 export function hapticLight(): void {
   if (navigator.vibrate) {
     navigator.vibrate(8)

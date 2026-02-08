@@ -23,6 +23,8 @@ export default function App() {
     mergeEvents,
     leaderboard,
     muted,
+    isFrozen,
+    getLavaState,
     initPhysics,
     cleanupPhysics,
     drop,
@@ -67,6 +69,7 @@ export default function App() {
         nextLevel={nextLevel}
         combo={combo}
         muted={muted}
+        isFrozen={isFrozen}
         onToggleMute={toggleMute}
       />
 
@@ -85,6 +88,7 @@ export default function App() {
             mergeEvents={mergeEvents}
             scaleInfo={scaleInfo}
             getEmojis={getEmojis}
+            getLavaState={getLavaState}
             onMoveX={moveDropX}
             onDrop={handleDrop}
             onInit={initPhysics}

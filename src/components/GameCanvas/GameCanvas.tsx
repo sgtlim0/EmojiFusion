@@ -15,6 +15,11 @@ interface Particle {
   size: number
 }
 
+export interface LavaState {
+  readonly lavaY: number
+  readonly isFrozen: boolean
+}
+
 interface GameCanvasProps {
   readonly currentLevel: number
   readonly dropX: number
@@ -22,6 +27,7 @@ interface GameCanvasProps {
   readonly mergeEvents: readonly MergeEvent[]
   readonly scaleInfo: ScaleInfo
   readonly getEmojis: () => EmojiRenderData[]
+  readonly getLavaState: () => LavaState
   readonly onMoveX: (x: number) => void
   readonly onDrop: () => void
   readonly onInit: (container: HTMLElement) => void
@@ -35,6 +41,7 @@ export default function GameCanvas({
   mergeEvents,
   scaleInfo,
   getEmojis,
+  getLavaState,
   onMoveX,
   onDrop,
   onInit,
@@ -44,15 +51,15 @@ export default function GameCanvas({
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null)
 
   // Store latest props in refs for the animation loop
-  const propsRef = useRef({ currentLevel, dropX, phase, getEmojis })
+  const propsRef = useRef({ currentLevel, dropX, phase, getEmojis, getLavaState })
   const particlesRef = useRef<Particle[]>([])
   const prevMergeCountRef = useRef(0)
   const scaleRef = useRef(scaleInfo)
 
   // Sync props to refs in effects
   useEffect(() => {
-    propsRef.current = { currentLevel, dropX, phase, getEmojis }
-  }, [currentLevel, dropX, phase, getEmojis])
+    propsRef.current = { currentLevel, dropX, phase, getEmojis, getLavaState }
+  }, [currentLevel, dropX, phase, getEmojis, getLavaState])
 
   useEffect(() => {
     scaleRef.current = scaleInfo
@@ -112,7 +119,7 @@ export default function GameCanvas({
         return
       }
 
-      const { currentLevel: cl, dropX: dx, phase: ph, getEmojis: ge } = propsRef.current
+      const { currentLevel: cl, dropX: dx, phase: ph, getEmojis: ge, getLavaState: gls } = propsRef.current
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
       const w = GAME_CONFIG.width
       const h = GAME_CONFIG.height
@@ -128,15 +135,42 @@ export default function GameCanvas({
 
       ctx.clearRect(0, 0, w, h)
 
-      // Danger line
-      ctx.strokeStyle = 'rgba(239, 68, 68, 0.3)'
-      ctx.lineWidth = 1
-      ctx.setLineDash([6, 4])
-      ctx.beginPath()
-      ctx.moveTo(GAME_CONFIG.wallThickness, GAME_CONFIG.dangerLineY)
-      ctx.lineTo(w - GAME_CONFIG.wallThickness, GAME_CONFIG.dangerLineY)
-      ctx.stroke()
-      ctx.setLineDash([])
+      // Lava
+      const lavaState = gls()
+      if (lavaState.lavaY < h) {
+        const lavaTop = Math.max(0, lavaState.lavaY)
+        const lavaGrad = ctx.createLinearGradient(0, lavaTop, 0, h)
+        if (lavaState.isFrozen) {
+          lavaGrad.addColorStop(0, 'rgba(59, 130, 246, 0.15)')
+          lavaGrad.addColorStop(0.5, 'rgba(59, 130, 246, 0.4)')
+          lavaGrad.addColorStop(1, 'rgba(37, 99, 235, 0.65)')
+        } else {
+          lavaGrad.addColorStop(0, 'rgba(239, 68, 68, 0.15)')
+          lavaGrad.addColorStop(0.4, 'rgba(249, 115, 22, 0.4)')
+          lavaGrad.addColorStop(1, 'rgba(220, 38, 38, 0.65)')
+        }
+        ctx.fillStyle = lavaGrad
+        ctx.fillRect(
+          GAME_CONFIG.wallThickness, lavaTop,
+          w - 2 * GAME_CONFIG.wallThickness, h - lavaTop,
+        )
+
+        // Surface line with glow
+        if (lavaState.lavaY > 0) {
+          ctx.save()
+          ctx.shadowColor = lavaState.isFrozen ? '#3b82f6' : '#f97316'
+          ctx.shadowBlur = 10
+          ctx.strokeStyle = lavaState.isFrozen
+            ? 'rgba(96, 165, 250, 0.9)'
+            : 'rgba(251, 146, 60, 0.9)'
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          ctx.moveTo(GAME_CONFIG.wallThickness, lavaState.lavaY)
+          ctx.lineTo(w - GAME_CONFIG.wallThickness, lavaState.lavaY)
+          ctx.stroke()
+          ctx.restore()
+        }
+      }
 
       // Drop guide
       if (ph !== 'gameover') {
