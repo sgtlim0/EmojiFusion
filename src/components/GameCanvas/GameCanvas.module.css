@@ -2,7 +2,6 @@
   position: relative;
   width: 350px;
   height: 600px;
-  margin: 0 auto;
   border-radius: 12px;
   overflow: hidden;
   background: var(--bg-game);
@@ -10,6 +9,7 @@
   box-shadow:
     0 0 40px rgba(168, 85, 247, 0.08),
     inset 0 0 60px rgba(0, 0, 0, 0.3);
+  will-change: transform;
 }
 
 .physicsContainer {
@@ -29,16 +29,4 @@
   width: 350px;
   height: 600px;
   cursor: pointer;
-}
-
-@media (max-width: 380px) {
-  .container {
-    width: 100vw;
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
-  }
-  .overlayCanvas {
-    width: 100vw;
-  }
 }

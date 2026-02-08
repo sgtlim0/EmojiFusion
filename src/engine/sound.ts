@@ -64,3 +64,21 @@ export function playBounce(): void {
 export function playButtonPress(): void {
   playTone(800, 0.03, 0.08, 'square')
 }
+
+export function hapticLight(): void {
+  if (navigator.vibrate) {
+    navigator.vibrate(8)
+  }
+}
+
+export function hapticMedium(): void {
+  if (navigator.vibrate) {
+    navigator.vibrate(15)
+  }
+}
+
+export function hapticHeavy(): void {
+  if (navigator.vibrate) {
+    navigator.vibrate([20, 30, 20])
+  }
+}

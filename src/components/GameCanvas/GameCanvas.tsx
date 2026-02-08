@@ -1,6 +1,7 @@
 import { useRef, useEffect, useCallback } from 'react'
 import { EMOJI_LEVELS, GAME_CONFIG } from '../../types/index.ts'
 import type { EmojiRenderData, MergeEvent } from '../../hooks/useEmojiGame.ts'
+import type { ScaleInfo } from '../../hooks/useResponsiveScale.ts'
 import styles from './GameCanvas.module.css'
 
 interface Particle {
@@ -19,6 +20,7 @@ interface GameCanvasProps {
   readonly dropX: number
   readonly phase: string
   readonly mergeEvents: readonly MergeEvent[]
+  readonly scaleInfo: ScaleInfo
   readonly getEmojis: () => EmojiRenderData[]
   readonly onMoveX: (x: number) => void
   readonly onDrop: () => void
@@ -31,6 +33,7 @@ export default function GameCanvas({
   dropX,
   phase,
   mergeEvents,
+  scaleInfo,
   getEmojis,
   onMoveX,
   onDrop,
@@ -44,7 +47,7 @@ export default function GameCanvas({
   const propsRef = useRef({ currentLevel, dropX, phase, getEmojis })
   const particlesRef = useRef<Particle[]>([])
   const prevMergeCountRef = useRef(0)
-  const mergeEventsRef = useRef(mergeEvents)
+  const scaleRef = useRef(scaleInfo)
 
   // Sync props to refs in effects
   useEffect(() => {
@@ -52,8 +55,8 @@ export default function GameCanvas({
   }, [currentLevel, dropX, phase, getEmojis])
 
   useEffect(() => {
-    mergeEventsRef.current = mergeEvents
-  }, [mergeEvents])
+    scaleRef.current = scaleInfo
+  }, [scaleInfo])
 
   // Init physics
   useEffect(() => {
@@ -72,18 +75,18 @@ export default function GameCanvas({
       const newParticles: Particle[] = []
       for (const evt of newEvents) {
         const color = EMOJI_LEVELS[evt.level].color
-        for (let i = 0; i < 12; i++) {
-          const angle = (Math.PI * 2 * i) / 12
-          const speed = 1.5 + Math.random() * 3
+        for (let i = 0; i < 10; i++) {
+          const angle = (Math.PI * 2 * i) / 10
+          const speed = 1.5 + Math.random() * 2.5
           newParticles.push({
             x: evt.x,
             y: evt.y,
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed - 1,
             life: 1,
-            maxLife: 0.4 + Math.random() * 0.3,
+            maxLife: 0.35 + Math.random() * 0.25,
             color,
-            size: 2 + Math.random() * 3,
+            size: 2 + Math.random() * 2.5,
           })
         }
       }
@@ -92,7 +95,7 @@ export default function GameCanvas({
     prevMergeCountRef.current = mergeEvents.length
   }, [mergeEvents])
 
-  // Animation loop - fully self-contained in useEffect
+  // Animation loop
   useEffect(() => {
     let animFrame = 0
     let canvasReady = false
@@ -110,7 +113,7 @@ export default function GameCanvas({
       }
 
       const { currentLevel: cl, dropX: dx, phase: ph, getEmojis: ge } = propsRef.current
-      const dpr = window.devicePixelRatio || 1
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
       const w = GAME_CONFIG.width
       const h = GAME_CONFIG.height
 
@@ -147,7 +150,7 @@ export default function GameCanvas({
         ctx.stroke()
         ctx.setLineDash([])
 
-        // Preview emoji at drop position
+        // Preview emoji
         ctx.font = `${emoji.radius * 1.4}px serif`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
@@ -164,8 +167,9 @@ export default function GameCanvas({
         ctx.translate(e.x, e.y)
         ctx.rotate(e.angle)
 
+        // Subtle glow (reduced for mobile perf)
         ctx.shadowColor = def.color
-        ctx.shadowBlur = 8
+        ctx.shadowBlur = 4
 
         ctx.beginPath()
         ctx.arc(0, 0, def.radius, 0, Math.PI * 2)
@@ -184,7 +188,7 @@ export default function GameCanvas({
         ctx.restore()
       }
 
-      // Render and update particles
+      // Particles
       const dt = 1 / 60
       const alive: Particle[] = []
       for (const p of particlesRef.current) {
@@ -215,32 +219,39 @@ export default function GameCanvas({
     return () => cancelAnimationFrame(animFrame)
   }, [])
 
-  // Input handlers
-  const getRelativeX = useCallback((clientX: number) => {
+  // Translate screen coordinates to game coordinates
+  const toGameX = useCallback((clientX: number) => {
     const canvas = overlayCanvasRef.current
     if (!canvas) return GAME_CONFIG.width / 2
     const rect = canvas.getBoundingClientRect()
-    const scaleX = GAME_CONFIG.width / rect.width
-    return (clientX - rect.left) * scaleX
+    return ((clientX - rect.left) / rect.width) * GAME_CONFIG.width
   }, [])
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
-      onMoveX(getRelativeX(e.clientX))
+      e.preventDefault()
+      onMoveX(toGameX(e.clientX))
     },
-    [onMoveX, getRelativeX],
+    [onMoveX, toGameX],
   )
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
-      onMoveX(getRelativeX(e.clientX))
+      e.preventDefault()
+      onMoveX(toGameX(e.clientX))
       onDrop()
     },
-    [onMoveX, onDrop, getRelativeX],
+    [onMoveX, onDrop, toGameX],
   )
 
   return (
-    <div className={styles.container}>
+    <div
+      className={styles.container}
+      style={{
+        transform: `scale(${scaleInfo.scale})`,
+        transformOrigin: 'top center',
+      }}
+    >
       <div ref={containerRef} className={styles.physicsContainer} />
       <canvas
         ref={overlayCanvasRef}

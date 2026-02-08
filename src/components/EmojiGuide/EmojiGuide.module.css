@@ -1,13 +1,13 @@
 .wrapper {
   position: fixed;
-  bottom: 12px;
-  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  right: calc(12px + env(safe-area-inset-right, 0px));
   z-index: 50;
 }
 
 .toggleButton {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   border: 1px solid rgba(168, 85, 247, 0.3);
   background: var(--bg-secondary);
@@ -25,15 +25,20 @@
   border-color: var(--accent);
 }
 
+.toggleButton:active {
+  transform: scale(0.9);
+}
+
 .panel {
   position: absolute;
-  bottom: 40px;
+  bottom: 44px;
   right: 0;
   background: var(--bg-secondary);
   border: 1px solid rgba(168, 85, 247, 0.25);
   border-radius: 12px;
   padding: 12px;
-  width: 280px;
+  width: 260px;
+  max-width: 80vw;
   animation: slideUp 0.2s ease;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
 }
@@ -44,7 +49,7 @@
 }
 
 .title {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -67,23 +72,23 @@
 }
 
 .emoji {
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 
 .points {
-  font-size: 0.45rem;
+  font-size: 0.4rem;
   color: var(--text-muted);
 }
 
 .arrow {
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   color: var(--text-muted);
   margin: 0 1px;
 }
 
 .hint {
   margin-top: 8px;
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   color: var(--text-muted);
   line-height: 1.4;
 }

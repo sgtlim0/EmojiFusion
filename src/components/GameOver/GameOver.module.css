@@ -3,11 +3,13 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 100;
   animation: fadeIn 0.3s ease;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 
 @keyframes fadeIn {
@@ -19,13 +21,16 @@
   background: var(--bg-secondary);
   border: 1px solid rgba(168, 85, 247, 0.3);
   border-radius: 16px;
-  padding: 24px;
-  width: 320px;
-  max-width: 90vw;
+  padding: 20px;
+  width: 300px;
+  max-width: 88vw;
+  max-height: 85vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   animation: slideUp 0.3s ease;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
@@ -43,7 +48,7 @@
 }
 
 .gameOverText {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -51,7 +56,7 @@
 }
 
 .newBest {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 700;
   color: var(--amber);
   background: rgba(245, 158, 11, 0.15);
@@ -69,7 +74,7 @@
 .scoreSection {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 20px;
 }
 
 .finalScore, .bestScoreBlock {
@@ -79,21 +84,21 @@
 }
 
 .scoreLabel {
-  font-size: 0.55rem;
+  font-size: 0.5rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--text-muted);
 }
 
 .scoreValue {
-  font-size: 2rem;
+  font-size: 1.8rem;
   font-weight: 800;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
 
 .bestValue {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
@@ -103,11 +108,11 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .lbTitle {
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--text-muted);
@@ -126,7 +131,7 @@
   gap: 8px;
   padding: 4px 8px;
   border-radius: 4px;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
 }
 
 .lbCurrent {
@@ -150,13 +155,13 @@
 
 .lbDate {
   color: var(--text-muted);
-  font-size: 0.6rem;
+  font-size: 0.55rem;
 }
 
 .emojiRow {
   display: flex;
-  gap: 4px;
-  font-size: 1.2rem;
+  gap: 3px;
+  font-size: 1.1rem;
 }
 
 .emojiItem {
@@ -180,13 +185,14 @@
   color: white;
   border: none;
   border-radius: 10px;
-  padding: 12px 32px;
+  padding: 14px 32px;
   font-size: 0.9rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   transition: all 100ms ease;
   width: 100%;
+  min-height: 48px;
 }
 
 .restartButton:hover {
@@ -197,4 +203,18 @@
 
 .restartButton:active {
   transform: scale(0.97);
+}
+
+@media (min-width: 480px) {
+  .modal {
+    padding: 24px;
+    width: 320px;
+    gap: 16px;
+  }
+  .gameOverText {
+    font-size: 1.5rem;
+  }
+  .scoreValue {
+    font-size: 2rem;
+  }
 }
